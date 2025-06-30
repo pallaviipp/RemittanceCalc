@@ -45,9 +45,9 @@ app.get('/api/health', (req, res) => {
 app.use('/api/rates', rateRoutes);
 app.use('/api/providers', providerRoutes);
 
-// Root endpoint
-app.get('/', (req, res) => {
+app.get('/api', (req, res) => {
   res.json({
+    success: true,
     message: 'RemittanceCalc API',
     version: '1.0.0',
     endpoints: {
@@ -57,6 +57,7 @@ app.get('/', (req, res) => {
     }
   });
 });
+
 
 // Error handling middleware
 app.use((err, req, res, next) => {

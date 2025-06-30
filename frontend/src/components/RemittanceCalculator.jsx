@@ -6,6 +6,7 @@ import {
   Users, Target, Sparkles, Heart, AlertCircle
 } from 'lucide-react';
 import axios from 'axios';
+import { providerService } from '../services/apiService';
 
 // API Service Layer
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -49,16 +50,6 @@ const exchangeRateService = {
   }
 };
 
-const providerService = {
-  async getProviders() {
-    try {
-      const response = await apiClient.get('/providers');
-      return response.data;
-    } catch (error) {
-      throw new Error('Failed to fetch providers');
-    }
-  }
-};
 
 // Enhanced currency metadata
 const currencies = [
@@ -355,8 +346,11 @@ const RemittanceCalculator = () => {
     setError(prev => ({ ...prev, providers: null }));
     
     try {
-      const providersData = await providerService.getProviders();
-      const transformedProviders = transformProviderData(providersData);
+      const response = await providerService.getProviders();
+      // Extract providers array from response
+      const providersArray = response.providers;
+      
+      const transformedProviders = transformProviderData(providersArray);
       setProviders(transformedProviders);
     } catch (err) {
       console.error('Failed to fetch providers:', err);

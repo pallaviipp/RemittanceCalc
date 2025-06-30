@@ -38,6 +38,25 @@ apiClient.interceptors.response.use(
   }
 );
 
+export const providerService = {
+  async getProviders() {
+    try {
+      const response = await apiClient.get('/providers');
+      return response.data;
+    } catch (error) {
+      throw new Error(`Failed to fetch providers: ${error.message}`);
+    }
+  },
+  async getProvider(id) {
+    try {
+      const response = await apiClient.get(`/providers/${id}`);
+      return response.data;
+    } catch (error) {
+      throw new Error(`Failed to fetch provider ${id}: ${error.message}`);
+    }
+  }
+};
+
 export const exchangeRateService = {
   async getLatestRates() {
     try {
@@ -47,7 +66,6 @@ export const exchangeRateService = {
       throw new Error(`Failed to fetch exchange rates: ${error.message}`);
     }
   },
-
   async getHistoricalRates(from, to) {
     try {
       const response = await apiClient.get('/rates/history', {
@@ -58,33 +76,12 @@ export const exchangeRateService = {
       throw new Error(`Failed to fetch historical rates: ${error.message}`);
     }
   },
-
   async getRateForCurrency(currency) {
     try {
       const response = await apiClient.get(`/rates/${currency}`);
       return response.data;
     } catch (error) {
       throw new Error(`Failed to fetch rate for ${currency}: ${error.message}`);
-    }
-  }
-};
-
-export const providerService = {
-  async getProviders() {
-    try {
-      const response = await apiClient.get('/providers');
-      return response.data;
-    } catch (error) {
-      throw new Error(`Failed to fetch providers: ${error.message}`);
-    }
-  },
-
-  async getProvider(id) {
-    try {
-      const response = await apiClient.get(`/providers/${id}`);
-      return response.data;
-    } catch (error) {
-      throw new Error(`Failed to fetch provider ${id}: ${error.message}`);
     }
   }
 };
@@ -100,4 +97,3 @@ export const healthCheck = async () => {
 };
 
 export default apiClient;
-

@@ -1,7 +1,15 @@
 import axios from 'axios';
 
 const NRB_API_URL = 'https://www.nrb.org.np/api/forex/v1/rates';
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const today = new Date().toISOString().split('T')[0]; // 'YYYY-MM-DD'
+const params = {
+  from: today,
+  to: today,
+  page: 1,
+  per_page: 100
+};
+const response = await axios.get(NRB_API_URL, { params });
+
 
 let cachedRates = null;
 let lastFetchTime = null;
