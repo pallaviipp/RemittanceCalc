@@ -5,6 +5,8 @@ import {
   ArrowRight, Zap, Shield, Award, ChevronDown,
   Users, Target, Sparkles, Heart
 } from 'lucide-react';
+import axios from 'axios';
+
 
 // Enhanced exchange rates with historical data
 const exchangeRates = {
