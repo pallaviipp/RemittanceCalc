@@ -1,0 +1,5 @@
+[
+  { "name": "Remitly", "feeUsd": 0, "rateMargin": -0.2, "notes": "New customer promo" },
+  { "name": "Paysend", "feeUsd": 1.99, "rateMargin": -0.3 },
+  { "name": "Cyrus", "feeUsd": 2.5, "rateMargin": -0.25 }
+]
