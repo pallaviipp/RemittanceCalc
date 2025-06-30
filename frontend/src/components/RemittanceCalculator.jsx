@@ -3,19 +3,61 @@ import {
   Calculator, DollarSign, TrendingUp, TrendingDown,
   Building2, Phone, Globe, RefreshCw, Clock, Star,
   ArrowRight, Zap, Shield, Award, ChevronDown,
-  Users, Target, Sparkles, Heart
+  Users, Target, Sparkles, Heart, AlertCircle
 } from 'lucide-react';
 import axios from 'axios';
 
+// API Service Layer
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-// Enhanced exchange rates with historical data
-const exchangeRates = {
-  USD: { current: 132.45, change24h: +0.85, trend: 'up' },
-  EUR: { current: 144.20, change24h: -0.45, trend: 'down' },
-  GBP: { current: 168.75, change24h: +1.20, trend: 'up' },
-  AUD: { current: 87.30, change24h: +0.35, trend: 'up' },
-  CAD: { current: 97.85, change24h: -0.25, trend: 'down' },
-  JPY: { current: 0.89, change24h: +0.02, trend: 'up' }
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Error interceptor for better error handling
+apiClient.interceptors.response.use(
+  response => response,
+  error => {
+    console.error('API Error:', error);
+    return Promise.reject(error);
+  }
+);
+
+const exchangeRateService = {
+  async getLatestRates() {
+    try {
+      const response = await apiClient.get('/rates/latest');
+      return response.data;
+    } catch (error) {
+      throw new Error('Failed to fetch exchange rates');
+    }
+  },
+
+  async getHistoricalRates(from, to) {
+    try {
+      const response = await apiClient.get('/rates/history', {
+        params: { from, to }
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error('Failed to fetch historical rates');
+    }
+  }
+};
+
+const providerService = {
+  async getProviders() {
+    try {
+      const response = await apiClient.get('/providers');
+      return response.data;
+    } catch (error) {
+      throw new Error('Failed to fetch providers');
+    }
+  }
 };
 
 // Enhanced currency metadata
@@ -26,50 +68,6 @@ const currencies = [
   { code: 'AUD', name: 'Australian Dollar', symbol: 'A$', flag: '🇦🇺' },
   { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$', flag: '🇨🇦' },
   { code: 'JPY', name: 'Japanese Yen', symbol: '¥', flag: '🇯🇵' }
-];
-
-// Enhanced bank data with more details
-const banks = [
-  {
-    id: 'ime', name: 'IME Ltd.', logo: '🏦', 
-    fee: 15, feeType: 'flat', exchangeRate: 132.20,
-    processingTime: '2-3 hours', rating: 4.8, reviews: 2847,
-    branches: '500+ branches', online: true, 
-    features: ['Mobile App', '24/7 Support', 'Cash Pickup'],
-    trustScore: 95, color: 'blue'
-  },
-  {
-    id: 'esewa', name: 'eSewa Money Transfer', logo: '💳',
-    fee: 1.5, feeType: 'percentage', exchangeRate: 132.10,
-    processingTime: 'Instant', rating: 4.6, reviews: 1523,
-    branches: 'Digital only', online: true,
-    features: ['Instant Transfer', 'Low Fees', 'Digital Wallet'],
-    trustScore: 92, color: 'green'
-  },
-  {
-    id: 'prabhu', name: 'Prabhu Money Transfer', logo: '🏪',
-    fee: 20, feeType: 'flat', exchangeRate: 132.35,
-    processingTime: '1-2 hours', rating: 4.7, reviews: 3241,
-    branches: '300+ branches', online: true,
-    features: ['Wide Network', 'Reliable', 'Cash Pickup'],
-    trustScore: 94, color: 'purple'
-  },
-  {
-    id: 'westernunion', name: 'Western Union', logo: '🌐',
-    fee: 2.0, feeType: 'percentage', exchangeRate: 131.90,
-    processingTime: '15-30 mins', rating: 4.5, reviews: 8976,
-    branches: 'Global network', online: true,
-    features: ['Global Reach', 'Fast Transfer', 'Trusted Brand'],
-    trustScore: 91, color: 'yellow'
-  },
-  {
-    id: 'remitly', name: 'Remitly', logo: '📱',
-    fee: 1.0, feeType: 'percentage', exchangeRate: 132.00,
-    processingTime: '30 mins - 2 hours', rating: 4.4, reviews: 967,
-    branches: 'App only', online: true,
-    features: ['Mobile First', 'Competitive Rates', 'Fast Processing'],
-    trustScore: 89, color: 'indigo'
-  }
 ];
 
 // Quick amount presets
@@ -119,7 +117,12 @@ const translations = {
     popular: "Popular",
     recommended: "Recommended",
     fastest: "Fastest",
-    cheapest: "Cheapest"
+    cheapest: "Cheapest",
+    loading: "Loading...",
+    error: "Error",
+    retry: "Retry",
+    fetchingRates: "Fetching latest rates...",
+    noData: "No data available"
   },
   ne: {
     title: "नेपाल पैसा पठाउने क्यालकुलेटर",
@@ -156,26 +159,242 @@ const translations = {
     popular: "लोकप्रिय",
     recommended: "सुझावित",
     fastest: "सबैभन्दा छिटो",
-    cheapest: "सबैभन्दा सस्तो"
+    cheapest: "सबैभन्दा सस्तो",
+    loading: "लोड हुँदै...",
+    error: "त्रुटि",
+    retry: "फेरि प्रयास गर्नुहोस्",
+    fetchingRates: "नवीनतम दरहरू ल्याउँदै...",
+    noData: "कुनै डेटा उपलब्ध छैन"
   }
 };
+
+// Error Message Component
+const ErrorMessage = ({ message, onRetry }) => (
+  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+    <div className="flex items-center justify-between">
+      <div className="flex items-center">
+        <AlertCircle className="w-5 h-5 text-red-600 mr-2" />
+        <span className="text-red-800">{message}</span>
+      </div>
+      {onRetry && (
+        <button 
+          onClick={onRetry}
+          className="text-red-600 hover:text-red-800 underline text-sm"
+        >
+          Retry
+        </button>
+      )}
+    </div>
+  </div>
+);
+
+// Loading Spinner Component
+const LoadingSpinner = ({ message }) => (
+  <div className="flex items-center justify-center py-8">
+    <div className="text-center">
+      <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-2" />
+      <p className="text-gray-600">{message}</p>
+    </div>
+  </div>
+);
 
 const RemittanceCalculator = () => {
   const [amount, setAmount] = useState('');
   const [fromCurrency, setFromCurrency] = useState('USD');
-  const [loading, setLoading] = useState(false);
+  const [exchangeRates, setExchangeRates] = useState({});
+  const [providers, setProviders] = useState([]);
+  const [loading, setLoading] = useState({
+    rates: false,
+    providers: false
+  });
+  const [error, setError] = useState({
+    rates: null,
+    providers: null
+  });
   const [isNepali, setIsNepali] = useState(false);
   const [showComparison, setShowComparison] = useState(false);
   const [lastUpdated, setLastUpdated] = useState(new Date());
 
   const t = translations[isNepali ? 'ne' : 'en'];
 
-  const refreshRates = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLastUpdated(new Date());
-      setLoading(false);
-    }, 1500);
+  // Fetch exchange rates on component mount and currency change
+  useEffect(() => {
+    fetchExchangeRates();
+  }, [fromCurrency]);
+
+  // Fetch providers on component mount
+  useEffect(() => {
+    fetchProviders();
+  }, []);
+
+  const transformNRBRates = (nrbRates) => {
+    const transformed = {};
+    if (Array.isArray(nrbRates)) {
+      nrbRates.forEach(rate => {
+        if (rate.currency && rate.sell) {
+          const currencyCode = rate.currency.iso3 || rate.currency.code;
+          transformed[currencyCode] = {
+            current: parseFloat(rate.sell),
+            change24h: calculateChange(rate),
+            trend: parseFloat(rate.sell) > parseFloat(rate.buy || rate.sell) ? 'up' : 'down'
+          };
+        }
+      });
+    }
+    return transformed;
+  };
+
+  const calculateChange = (rate) => {
+    // This would need historical data from the API
+    // For now, returning a simulated change
+    const change = (Math.random() - 0.5) * 2;
+    return parseFloat(change.toFixed(2));
+  };
+
+  const transformProviderData = (backendProviders) => {
+    return backendProviders.map((provider, index) => ({
+      id: provider.name.toLowerCase().replace(/\s+/g, ''),
+      name: provider.name,
+      logo: getProviderLogo(provider.name),
+      fee: provider.feeUsd || 15,
+      feeType: provider.feeType || 'flat',
+      exchangeRate: getCurrentRate() + (provider.rateMargin || 0),
+      processingTime: getProcessingTime(provider.name),
+      rating: provider.rating || 4.5,
+      reviews: provider.reviews || 1000,
+      branches: getBranchInfo(provider.name),
+      online: provider.online !== false,
+      features: getFeatures(provider.name),
+      trustScore: provider.trustScore || 90,
+      color: getProviderColor(index),
+      notes: provider.notes
+    }));
+  };
+
+  const getProviderLogo = (name) => {
+    const logoMap = {
+      'ime': '🏦',
+      'esewa': '💳',
+      'prabhu': '🏪',
+      'western union': '🌐',
+      'remitly': '📱'
+    };
+    return logoMap[name.toLowerCase()] || '🏢';
+  };
+
+  const getProcessingTime = (name) => {
+    const timeMap = {
+      'ime': '2-3 hours',
+      'esewa': 'Instant',
+      'prabhu': '1-2 hours',
+      'western union': '15-30 mins',
+      'remitly': '30 mins - 2 hours'
+    };
+    return timeMap[name.toLowerCase()] || '1-2 hours';
+  };
+
+  const getBranchInfo = (name) => {
+    const branchMap = {
+      'ime': '500+ branches',
+      'esewa': 'Digital only',
+      'prabhu': '300+ branches',
+      'western union': 'Global network',
+      'remitly': 'App only'
+    };
+    return branchMap[name.toLowerCase()] || 'Multiple locations';
+  };
+
+  const getFeatures = (name) => {
+    const featureMap = {
+      'ime': ['Mobile App', '24/7 Support', 'Cash Pickup'],
+      'esewa': ['Instant Transfer', 'Low Fees', 'Digital Wallet'],
+      'prabhu': ['Wide Network', 'Reliable', 'Cash Pickup'],
+      'western union': ['Global Reach', 'Fast Transfer', 'Trusted Brand'],
+      'remitly': ['Mobile First', 'Competitive Rates', 'Fast Processing']
+    };
+    return featureMap[name.toLowerCase()] || ['Reliable', 'Secure', 'Fast'];
+  };
+
+  const getProviderColor = (index) => {
+    const colors = ['blue', 'green', 'purple', 'yellow', 'indigo'];
+    return colors[index % colors.length];
+  };
+
+  const getCurrentRate = () => {
+    return exchangeRates[fromCurrency]?.current || 132.45;
+  };
+
+  const fetchExchangeRates = async () => {
+    setLoading(prev => ({ ...prev, rates: true }));
+    setError(prev => ({ ...prev, rates: null }));
+    
+    try {
+      const ratesData = await exchangeRateService.getLatestRates();
+      const transformedRates = transformNRBRates(ratesData.rates || ratesData);
+      setExchangeRates(transformedRates);
+      setLastUpdated(new Date(ratesData.updated || Date.now()));
+    } catch (err) {
+      console.error('Failed to fetch exchange rates:', err);
+      setError(prev => ({ ...prev, rates: 'Failed to fetch exchange rates' }));
+      // Fallback to mock data
+      setExchangeRates({
+        USD: { current: 132.45, change24h: +0.85, trend: 'up' },
+        EUR: { current: 144.20, change24h: -0.45, trend: 'down' },
+        GBP: { current: 168.75, change24h: +1.20, trend: 'up' },
+        AUD: { current: 87.30, change24h: +0.35, trend: 'up' },
+        CAD: { current: 97.85, change24h: -0.25, trend: 'down' },
+        JPY: { current: 0.89, change24h: +0.02, trend: 'up' }
+      });
+    } finally {
+      setLoading(prev => ({ ...prev, rates: false }));
+    }
+  };
+
+  const fetchProviders = async () => {
+    setLoading(prev => ({ ...prev, providers: true }));
+    setError(prev => ({ ...prev, providers: null }));
+    
+    try {
+      const providersData = await providerService.getProviders();
+      const transformedProviders = transformProviderData(providersData);
+      setProviders(transformedProviders);
+    } catch (err) {
+      console.error('Failed to fetch providers:', err);
+      setError(prev => ({ ...prev, providers: 'Failed to fetch providers' }));
+      // Fallback to mock data
+      setProviders([
+        {
+          id: 'ime', name: 'IME Ltd.', logo: '🏦', 
+          fee: 15, feeType: 'flat', exchangeRate: 132.20,
+          processingTime: '2-3 hours', rating: 4.8, reviews: 2847,
+          branches: '500+ branches', online: true, 
+          features: ['Mobile App', '24/7 Support', 'Cash Pickup'],
+          trustScore: 95, color: 'blue'
+        },
+        {
+          id: 'esewa', name: 'eSewa Money Transfer', logo: '💳',
+          fee: 1.5, feeType: 'percentage', exchangeRate: 132.10,
+          processingTime: 'Instant', rating: 4.6, reviews: 1523,
+          branches: 'Digital only', online: true,
+          features: ['Instant Transfer', 'Low Fees', 'Digital Wallet'],
+          trustScore: 92, color: 'green'
+        },
+        {
+          id: 'prabhu', name: 'Prabhu Money Transfer', logo: '🏪',
+          fee: 20, feeType: 'flat', exchangeRate: 132.35,
+          processingTime: '1-2 hours', rating: 4.7, reviews: 3241,
+          branches: '300+ branches', online: true,
+          features: ['Wide Network', 'Reliable', 'Cash Pickup'],
+          trustScore: 94, color: 'purple'
+        }
+      ]);
+    } finally {
+      setLoading(prev => ({ ...prev, providers: false }));
+    }
+  };
+
+  const refreshRates = async () => {
+    await fetchExchangeRates();
   };
 
   const calculateFee = (bank, sendAmount) => {
@@ -203,16 +422,16 @@ const RemittanceCalculator = () => {
     const sendAmount = parseFloat(amount);
     if (sendAmount <= 0) return [];
     
-    const providers = banks.map(bank => ({
+    const providersWithCalc = providers.map(bank => ({
       ...bank,
       ...calculateTotal(bank, sendAmount),
     })).sort((a, b) => b.nprAmount - a.nprAmount);
     
-    return providers.map((provider, index) => ({
+    return providersWithCalc.map((provider, index) => ({
       ...provider,
       rank: index + 1,
       isBest: index === 0,
-      savings: index === 0 ? 0 : providers[0].nprAmount - provider.nprAmount
+      savings: index === 0 ? 0 : providersWithCalc[0].nprAmount - provider.nprAmount
     }));
   };
 
@@ -228,8 +447,8 @@ const RemittanceCalculator = () => {
   };
 
   const currentRate = exchangeRates[fromCurrency];
-  const providers = getProviderComparison();
-  const bestProvider = providers.length > 0 ? providers[0] : null;
+  const providerComparison = getProviderComparison();
+  const bestProvider = providerComparison.length > 0 ? providerComparison[0] : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100">
@@ -277,6 +496,18 @@ const RemittanceCalculator = () => {
               {t.heroSubtitle}
             </p>
           </div>
+
+          {/* Error Messages */}
+          {error.rates && (
+            <div className="max-w-4xl mx-auto mb-6">
+              <ErrorMessage message={error.rates} onRetry={fetchExchangeRates} />
+            </div>
+          )}
+          {error.providers && (
+            <div className="max-w-4xl mx-auto mb-6">
+              <ErrorMessage message={error.providers} onRetry={fetchProviders} />
+            </div>
+          )}
 
           {/* Main Calculator Card */}
           <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-4xl mx-auto">
@@ -340,39 +571,45 @@ const RemittanceCalculator = () => {
 
                 {/* Live Rate */}
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600">{t.currentRate}</p>
-                      <p className="text-xl font-bold text-gray-900">
-                        1 {fromCurrency} = Rs. {currentRate?.current || 0}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <div className={`flex items-center gap-1 text-sm font-medium ${
-                        currentRate?.trend === 'up' ? 'text-green-600' : 'text-red-600'
-                      }`}>
-                        {currentRate?.trend === 'up' ? 
-                          <TrendingUp className="w-4 h-4" /> : 
-                          <TrendingDown className="w-4 h-4" />
-                        }
-                        {currentRate?.change24h > 0 ? '+' : ''}{currentRate?.change24h || 0}
+                  {loading.rates ? (
+                    <LoadingSpinner message={t.fetchingRates} />
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-600">{t.currentRate}</p>
+                        <p className="text-xl font-bold text-gray-900">
+                          1 {fromCurrency} = Rs. {currentRate?.current || 0}
+                        </p>
                       </div>
-                      <button
-                        onClick={refreshRates}
-                        disabled={loading}
-                        className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 mt-1"
-                      >
-                        <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
-                        {t.refresh}
-                      </button>
+                      <div className="text-right">
+                        <div className={`flex items-center gap-1 text-sm font-medium ${
+                          currentRate?.trend === 'up' ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {currentRate?.trend === 'up' ? 
+                            <TrendingUp className="w-4 h-4" /> : 
+                            <TrendingDown className="w-4 h-4" />
+                          }
+                          {currentRate?.change24h > 0 ? '+' : ''}{currentRate?.change24h || 0}
+                        </div>
+                        <button
+                          onClick={refreshRates}
+                          disabled={loading.rates}
+                          className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 mt-1 disabled:opacity-50"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${loading.rates ? 'animate-spin' : ''}`} />
+                          {t.refresh}
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               </div>
 
               {/* Right Column - Results */}
               <div className="space-y-6">
-                {amount && parseFloat(amount) > 0 && bestProvider ? (
+                {loading.providers ? (
+                  <LoadingSpinner message="Loading providers..." />
+                ) : amount && parseFloat(amount) > 0 && bestProvider ? (
                   <>
                     {/* Best Deal Card */}
                     <div className="bg-gradient-to-r from-green-500 to-emerald-500 rounded-xl p-6 text-white">
@@ -444,7 +681,7 @@ const RemittanceCalculator = () => {
       </div>
 
       {/* Comparison Section */}
-      {showComparison && amount && parseFloat(amount) > 0 && providers.length > 0 && (
+      {showComparison && amount && parseFloat(amount) > 0 && providerComparison.length > 0 && (
         <div className="max-w-6xl mx-auto px-6 py-12">
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-2">All Providers Comparison</h2>
@@ -452,7 +689,7 @@ const RemittanceCalculator = () => {
           </div>
 
           <div className="grid gap-6">
-            {providers.map((provider, index) => (
+            {providerComparison.map((provider, index) => (
               <div
                 key={provider.id}
                 className={`bg-white rounded-xl shadow-lg p-6 border-2 transition-all hover:shadow-xl ${
@@ -587,4 +824,5 @@ const RemittanceCalculator = () => {
     </div>
   );
 };
+
 export default RemittanceCalculator;
