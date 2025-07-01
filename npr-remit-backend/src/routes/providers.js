@@ -1,23 +1,14 @@
 import express from 'express';
-import fs from 'fs/promises';
-import path from 'path';
-import { fileURLToPath } from 'url';
+import { providerService } from '../services/dbService.js';
 
 const router = express.Router();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
-// Get all providers
 router.get('/', async (req, res) => {
   try {
-    console.log('Fetching providers...');
-    const providersPath = path.join(__dirname, '../data/providers.json');
-    const data = await fs.readFile(providersPath, 'utf8');
-    const providers = JSON.parse(data);
-    
+    const providers = await providerService.getProviders();
     res.json({
       success: true,
-      providers: providers,
+      providers,
       count: providers.length,
       updated: new Date().toISOString()
     });
@@ -31,18 +22,10 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get specific provider
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const providersPath = path.join(__dirname, '../data/providers.json');
-    const data = await fs.readFile(providersPath, 'utf8');
-    const providers = JSON.parse(data);
-    
-    const provider = providers.find(p => 
-      p.id === id || 
-      p.name.toLowerCase().replace(/\s+/g, '') === id.toLowerCase()
-    );
+    const provider = await providerService.getProvider(id);
     
     if (!provider) {
       return res.status(404).json({
@@ -53,7 +36,7 @@ router.get('/:id', async (req, res) => {
     
     res.json({
       success: true,
-      provider: provider,
+      provider,
       updated: new Date().toISOString()
     });
   } catch (error) {
